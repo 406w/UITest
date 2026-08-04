@@ -367,3 +367,6 @@ class BaseOperates:
             from selenium.webdriver.common.touch_actions import TouchActions
 
             TouchActions(self.driver).flick(*start, *end).perform()
+
+
+__all__ = ["BaseOperates", "ClickResult", "ElementNotFoundError", "PopupError"]

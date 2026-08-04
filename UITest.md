@@ -21,9 +21,10 @@ UITest/
 │   │   └── home_page_redirects.py
 │   └── page_objects/          # ③ 页面对象层（链式调用，暴露业务接口）
 ├── common/                    # 公共层
-│   ├── base_operates/         # ④ 基础操作层（find 软等待/并行滚动、click 快照/弹窗截获、swipe 手势重构）
-│   ├── driver/                #    Driver 工厂（Web selenium / Android·IOS appium）
-│   └── testcase/              #    用例基类（init/setup/test_step/teardown 框架）
+│   ├── base_operates.py       # BaseOperates 类 ④ 基础操作层（find 软等待/并行滚动、click 快照/弹窗截获、swipe 手势重构）
+│   ├── driver.py              #    Driver 工厂（Web selenium / Android·IOS appium）
+│   ├── base_test_case.py      #    用例基类（init/setup/test_step/teardown 框架）
+│   └── business_flow.py       #    业务流程层（串联 PO 操作，复用业务场景）
 ├── data/                      # 测试基础数据（sqlite）
 │   ├── test_data.db           #    sqlite 数据库（sites 站点表 + accounts 账号表，一网址多账号）
 │   ├── database.py            #    DataBase 访问封装（get_sites/get_account/get_accounts/get_default_account）
@@ -40,133 +41,88 @@ UITest/
 
 ### 1、页面元素层（page/page_elements）
 
-1. 一个页面为一个 Page 类
-2. 定位器统一声明方式，不论有无特征属性
-3. 无特征属性则"关系"同页面其它定位器
-4. 多系统适配（web / android / ios 各自声明定位器）
-    示例
-    class HomePage:
-        """首页"""
-    
-        class account:
-            """账号按钮 - 有明确特征的控件"""
-            element_name = "账号"
-            
-            class android:
-                text = "账号"
-                id = "com.example:id/btn_account"
-                xpath = "//*[@text='账号']"
-            
-            class ios:
-                text = "账号"
-                id = "accountButton"
-                xpath = "//XCUIElementTypeButton[@name='账号']"
-            
-            class web:
-                text = "账号"
-                id = "btn-account"
-                css_selector = "#btn-account"
-        
-        class avatar:
-            """头像 - 只是一个ImageView，没有文本也没有ID"""
-            element_name = "头像"
-            
-            class android:
-                # 基础属性（仅用于识别控件类型）
-                class_name = "android.widget.ImageView"
-                
-                # 关系定位：通过父控件定位
-                relation = {
-                    "type": RelationType.CHILD_OF,
-                    "parent": "home_header",  # 引用同页面的其他控件
-                    "index": 0  # 父控件下的第0个子控件
-                }
-            
-            class ios:
-                class_name = "XCUIElementTypeImage"
-                
-                relation = {
-                    "type": RelationType.CHILD_OF,
-                    "parent": "home_header",
-                    "index": 0
-                }
-            
-            class web:
-                tag_name = "img"
-                
-                relation = {
-                    "type": RelationType.CHILD_OF,
-                    "parent": "home_header",
-                    "index": 0
-                }
-5. 自动解析"关系"，转换为实际定位器
-6. 定位器倒序引用，引用方式从页面.定位器，改为定位器.页面
+能力：每个页面一个 Page 类，声明页面控件定位器；支持多系统（web / android / ios）各自适配；无特征属性的控件通过"关系"（relation）定位；定位器倒序引用。
+
+示例
+
+```python
+class HomePage(Page):
+    class account:
+        """账号按钮"""
+        element_name = "账号"
+
+        class web:
+            id = "btn-account"
+
+        class android:
+            id = "com.example:id/btn_account"
+
+        class ios:
+            xpath = "//XCUIElementTypeButton[@name='账号']"
+```
 
 ### 2、页面跳转层（page/page_redirect）
 
-1. 引入页面跳转的关系，便于脚本编码时能直接从代码中查找页面跳转，不需要查看实际页面
-2. 页面关系倒序关联
-3. 引入关系函数，直接输出能跳转到目标页面的全部方式
-4. 跳转来源（ComeFrom）在 page_redirect 层声明，每个页面一个声明文件，只声明 to_page（本页面），不定义 from_page 参数，格式：来源描述 = (来源页面类, 来源页面控件类)，页面与定位器从 page_elements 中引用
-    示例
-    class HomePage:
-        """首页"""
-        
-        class ComeFrom:
-            """谁可以跳转到首页"""
-            # 格式：来源描述 = (页面类, 控件属性名)
-            from_account_center_back = (
-                PageElements.AccountCenterPage, 
-                PageElements.AccountCenterPage.back_btn
-            )
-            from_security_back = (
-                PageElements.SecurityPage,
-                PageElements.SecurityPage.back_btn
-            )
+能力：声明页面间的跳转来源（ComeFrom），并提供 ways_to 反查"能跳转到目标页面的全部方式"，编码时直接查代码即可，无需打开实际页面。
 
-### 3、基础操作层（common/base_operates）
+示例
 
-find 方法定位器查找
-1. 声明不同函数对定位器不同属性的控件进行查找
-2. 自动获取类中对应的属性
-3. 软等待
-4. 第二线程并行滚动，辅助查找
+```python
+class HomePage:
+    class ComeFrom:
+        """谁可以跳转到首页"""
+        from_login_back = (BilibiliLoginPage, BilibiliLoginPage.back_btn)
+```
 
-click 方法重构
-1. 获取当前页面快照，对比操作后的实际结果
-2. 允许传入处理指定弹窗的处理函数
-3. 截获可能出现的弹窗，如果弹窗不是目标弹窗，给出实际报错原因
+### 3、基础操作层（common/base_operates.py）
 
-swipe 方法重构
-1. 按照实际的手势操作进行
-2. 处理控件只出现一部分的情况
-3. 处理反弹问题
+能力：基础操作重构——find 软等待查找（可并行滚动辅助）、click 快照对比 + 弹窗截获、swipe 手势化滑动。
 
-### 4、页面对象层（page/page_objects）
+### 4、控制器（common/driver.py）
 
-1. 关联 PageElement 层中的单个页面的 Page 类
-2. 实现该页面全部控件的全部操作
-3. 暴露业务需要用到的接口
-4. 链式调用
+能力：统一创建 Web(selenium) / Android·IOS(appium) 驱动，通过 `--platform` / `--browser` 切换，用例不关心驱动创建。
 
-### 5、测试用例层（testcase）
+### 5、用例脚本结构化（common/base_test_case.py）
 
-1. 一个业务场景为一个用例函数
-2. 通过 PageObject 层组织操作，用例中不直接接触定位器
-3. 断言与业务步骤分离，失败原因明确
-4. 用例标记 web / android / ios，按端运行
-5. 脚本框架：用例文件抽象成类，继承 common/testcase/base_test_case.py 的 TestCaseBase，
-   类包含以下方法，统一结构：
-   - `__init__(driver)` / `_init_objects()`: init，初始化测试用例，引入资源文件，实例化操作对象
-   - `setup()`: 预置条件
-   - `test_step()`: 测试步骤（子类必须实现）
-   - `teardown()`: 恢复环境（无论执行成功与否都会执行）
-   类内加 `__test__ = False` 标记非 pytest 测试类，文件底部提供 pytest 函数入口调用 `用例类(driver).run()`，
-   run() 内部保证 setup -> test_step -> teardown(finally 必定执行)
+能力：用例抽象成类，统一 `init -> setup -> test_step -> teardown` 结构，`run()` 保证 teardown 必定执行。
 
-### 6、测试基础数据（data）
+### 6、业务流程层（common/business_flow.py）
 
-1. sqlite 本地数据库 `data/test_data.db`，表 sites（站点）+ accounts（账号密码，一个网址对应多个账号）
-2. 初始化脚本 `data/init_db.py`（幂等）：新增站点/账号直接修改 INIT_SITES / INIT_ACCOUNTS 后执行
-3. 访问封装 `data/database.py`：get_sites / get_site / get_accounts / get_default_account / get_account(按指定账号取密码)
-4. 用例通过 DataBase 读取测试数据，不在用例中硬编码账号密码
+能力：串联各 PO 操作成可复用的业务场景（如"登录"流程），用例只调用业务流，不直接接触 PO 细节。
+
+示例
+
+```python
+class BilibiliLoginFlow(BusinessFlow):
+    def login(self, username, password):
+        return (self.open_home()
+                .ensure_not_logged_in()
+                .go_to_login_page()
+                .fill_login_form(username, password)
+                .submit_login())
+
+# 用例中直接调用
+class TestLogin(TestCaseBase):
+    def test_step(self):
+        self.flow.login(user, pwd)
+```
+
+### 7、页面对象层（page/page_objects）
+
+能力：实现页面全部控件操作，暴露业务接口，链式调用。
+
+### 8、测试用例层（testcase）
+
+能力：一个业务场景一个用例；通过 PageObject / 业务流程层组织操作，用例中不直接接触定位器；断言与业务步骤分离；标记 web / android / ios 按端运行。
+
+示例
+
+```python
+@allure.title("完整登录流程")
+def test_bilibili_complete_login_flow(driver):
+    TestBilibiliCompleteLoginFlow(driver).run()
+```
+
+### 9、测试基础数据（data）
+
+能力：sqlite 本地数据库存放站点与账号密码数据，用例通过 DataBase 读取，不硬编码账号密码。

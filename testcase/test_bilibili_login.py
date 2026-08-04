@@ -3,7 +3,7 @@
 import allure
 import pytest
 
-from common.testcase.base_test_case import TestCaseBase
+from common.base_test_case import TestCaseBase
 from page.page_objects.bilibili_home_page_object import BilibiliHomePageObject
 
 

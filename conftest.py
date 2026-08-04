@@ -2,7 +2,7 @@
 import allure
 import pytest
 
-from common.driver.webdriver_factory import WebDriverFactory
+from common.driver import WebDriverFactory
 
 
 def pytest_addoption(parser):

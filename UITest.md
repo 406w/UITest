@@ -80,11 +80,35 @@ class HomePage:
 
 ### 4、控制器（common/driver.py）
 
-能力：统一创建 Web(selenium) / Android·IOS(appium) 驱动，通过 `--platform` / `--browser` 切换，用例不关心驱动创建。
+能力：统一创建 Web(selenium) / Android·IOS(appium) 驱动，通过 `--platform` / `--browser` 切换；DriverManager 按名称管理多个驱动，一个用例可同时控制多个 web 页面 / 移动设备，用例结束自动全部关闭。
+
+示例
+
+```python
+# conftest 自动提供 driver（主设备）与 driver_manager，用例函数同时请求即可
+def test_multi_device(driver, driver_manager):
+    TestX(driver, driver_manager=driver_manager).run()
+
+# 用例内创建附加设备
+self.second = self.new_driver("page2", browser="chrome")
+```
 
 ### 5、用例脚本结构化（common/base_test_case.py）
 
-能力：用例抽象成类，统一 `init -> setup -> test_step -> teardown` 结构，`run()` 保证 teardown 必定执行。
+能力：用例抽象成类，统一 `init -> setup -> test_step -> teardown` 结构，`run()` 保证 teardown 必定执行；传入 driver_manager 后可用 `new_driver()` 创建附加驱动（多页面 / 多设备），用例结束自动关闭。
+
+示例
+
+```python
+class TestMultiDevice(TestCaseBase):
+    def _init_objects(self):
+        self.home = BilibiliHomePageObject(self.driver)
+        self.home2 = BilibiliHomePageObject(self.new_driver("page2", browser="chrome"))
+
+    def test_step(self):
+        self.home.open_home().wait_loaded()
+        self.home2.open_home().wait_loaded()   # 同时控制两个页面
+```
 
 ### 6、业务流程层（common/business_flow.py）
 

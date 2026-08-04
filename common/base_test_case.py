@@ -7,6 +7,9 @@
 - teardown():     恢复环境（无论执行成功与否都会执行）
 
 执行入口 run()：setup -> test_step，teardown 在 finally 中必定执行。
+
+多设备支持：传入 conftest 的 driver_manager 后，可在用例内通过
+new_driver() 创建附加驱动（多个 web 页面 / 移动设备），用例结束自动关闭。
 """
 from __future__ import annotations
 
@@ -14,11 +17,43 @@ from __future__ import annotations
 class TestCaseBase:
     __test__ = False  # 标记非 pytest 测试类，由函数包装调用 run()
 
-    def __init__(self, driver, platform: str = "web"):
-        """init：初始化测试用例。driver 由 conftest fixture 注入。"""
+    def __init__(self, driver, platform: str = "web", driver_manager=None):
+        """init：初始化测试用例。driver 由 conftest fixture 注入。
+
+        driver_manager: 可选，传入 conftest 的 driver_manager fixture，
+            用于在用例中创建/获取附加驱动（多页面、多设备）。
+        """
         self.driver = driver
         self.platform = platform
+        self.driver_manager = driver_manager
+        self._extra_drivers: list[str] = []
         self._init_objects()
+
+    # ---------------- 多设备控制 ----------------
+    def new_driver(self, name: str, platform: str = "web", browser: str = "edge", **kwargs):
+        """创建附加驱动（新 web 页面 / 移动设备），返回该 driver，用例中可直接控制。"""
+        if self.driver_manager is None:
+            raise RuntimeError(
+                "未注入 driver_manager：用例入口需同时请求 driver_manager fixture，"
+                "并在初始化时传入 TestCaseBase(driver, driver_manager=driver_manager)"
+            )
+        driver = self.driver_manager.create_driver(name, platform=platform, browser=browser, **kwargs)
+        self._extra_drivers.append(name)
+        return driver
+
+    def get_driver(self, name: str = "main"):
+        """获取已创建的驱动（默认主 driver）。"""
+        if self.driver_manager is None:
+            raise RuntimeError("未注入 driver_manager，无法获取其他驱动")
+        return self.driver_manager.get_driver(name)
+
+    def close_driver(self, name: str) -> None:
+        """手动关闭指定驱动（主 driver 与附加驱动均可）。"""
+        if self.driver_manager is None:
+            raise RuntimeError("未注入 driver_manager，无法关闭驱动")
+        self.driver_manager.close_driver(name)
+        if name in self._extra_drivers:
+            self._extra_drivers.remove(name)
 
     def _init_objects(self) -> None:
         """初始化测试用例：引入资源文件（data/PO 等）并实例化操作对象，子类覆盖。"""
@@ -34,9 +69,20 @@ class TestCaseBase:
         """恢复环境：测试后置清理，无论执行成功与否都会调用，子类覆盖。"""
 
     def run(self) -> None:
-        """执行用例：setup -> test_step，teardown 无论成败必定执行。"""
+        """执行用例：setup -> test_step，teardown 无论成败必定执行，最后自动关闭附加驱动。"""
         try:
             self.setup()
             self.test_step()
         finally:
-            self.teardown()
+            try:
+                self.teardown()
+            finally:
+                self._close_extra_drivers()
+
+    def _close_extra_drivers(self) -> None:
+        """关闭用例内创建的附加驱动（主 driver 由 conftest 的 driver_manager fixture 统一关闭）。"""
+        if self.driver_manager is None:
+            return
+        for name in list(self._extra_drivers):
+            self.driver_manager.close_driver(name)
+        self._extra_drivers.clear()

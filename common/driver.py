@@ -4,6 +4,8 @@
     platform="web"     -> selenium webdriver（chrome/edge/firefox）
     platform="android" -> appium AndroidDriver
     platform="ios"     -> appium IosDriver
+
+DriverManager：按名称管理多个驱动，一个用例可同时控制多个 web 页面 / 移动设备。
 """
 from __future__ import annotations
 
@@ -112,3 +114,60 @@ class WebDriverFactory:
 
             return appium_webdriver.Remote(appium_server, caps)
         raise UnsupportedPlatformError(f"不支持的平台: {self.platform}")
+
+
+class DriverManager:
+    """多设备驱动管理：按名称注册/获取/关闭多个 driver，支持一个用例同时控制多个 web 页面 / 移动设备。"""
+
+    def __init__(self, page_load_timeout: float = 30.0):
+        self.page_load_timeout = page_load_timeout
+        self._drivers: dict[str, Any] = {}
+
+    def create_driver(
+        self,
+        name: str = "main",
+        platform: str = WebDriverFactory.WEB,
+        browser: str = WebDriverFactory._EDGE_BROWSER,
+        **kwargs: Any,
+    ):
+        """创建并注册一个驱动，返回 driver。name 重复时抛 ValueError。"""
+        if name in self._drivers:
+            raise ValueError(f"驱动已存在: {name}，已创建: {list(self._drivers)}")
+        driver = WebDriverFactory(platform=platform, browser=browser).create(**kwargs)
+        driver.set_page_load_timeout(self.page_load_timeout)
+        self._drivers[name] = driver
+        return driver
+
+    def get_driver(self, name: str = "main"):
+        """获取已注册的驱动。"""
+        try:
+            return self._drivers[name]
+        except KeyError:
+            raise ValueError(
+                f"驱动不存在: {name}，已创建: {list(self._drivers)}"
+            ) from None
+
+    def close_driver(self, name: str) -> None:
+        """关闭指定驱动并移除注册。"""
+        driver = self._drivers.pop(name, None)
+        if driver is not None:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+    def close_all(self) -> None:
+        """关闭全部驱动。"""
+        for name in list(self._drivers):
+            self.close_driver(name)
+
+    @property
+    def drivers(self) -> dict[str, Any]:
+        """当前存活的驱动：{名称: driver}。"""
+        return self._drivers
+
+    def __enter__(self) -> "DriverManager":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close_all()

@@ -2,7 +2,7 @@
 import allure
 import pytest
 
-from common.driver import WebDriverFactory
+from common.driver import DriverManager
 
 
 def pytest_addoption(parser):
@@ -23,13 +23,19 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="function")
-def driver(request):
+def driver_manager():
+    """多设备驱动管理：一个用例可创建多个 driver（多个 web 页面 / 移动设备），用例结束自动全部关闭。"""
+    manager = DriverManager()
+    yield manager
+    manager.close_all()
+
+
+@pytest.fixture(scope="function")
+def driver(request, driver_manager):
+    """主 driver：由 DriverManager 统一管理，平台/浏览器由命令行参数决定。"""
     platform = request.config.getoption("--platform")
     browser = request.config.getoption("--browser")
-    driver = WebDriverFactory(platform=platform, browser=browser).create()
-    driver.set_page_load_timeout(30)
-    yield driver
-    driver.quit()
+    return driver_manager.create_driver("main", platform=platform, browser=browser)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -38,6 +44,10 @@ def pytest_runtest_makereport(item, call):
     report = outcome.get_result()
     if report.when == "call" and report.failed:
         driver = item.funcargs.get("driver")
+        if driver is None:
+            manager = item.funcargs.get("driver_manager")
+            if manager and manager.drivers:
+                driver = next(iter(manager.drivers.values()))
         if driver:
             try:
                 allure.attach(

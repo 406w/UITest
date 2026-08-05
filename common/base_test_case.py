@@ -13,6 +13,38 @@ new_driver() 创建附加驱动（多个 web 页面 / 移动设备），用例�
 """
 from __future__ import annotations
 
+import allure
+
+
+def step(name: str) -> None:
+    """操作步骤：在 allure 报告中记录一个操作步骤节点，并输出到控制台。
+
+    关键字风格用法——step("XXX") 后紧跟该步骤的操作代码：
+        step("打开哔哩哔哩首页")
+        self.flow.open_home()
+
+    等价于 `with allure.step(name): ...`，报告层级以步骤为节点。
+    """
+    with allure.step(name):
+        print(f"[STEP] {name}")
+
+
+def checkPoint(name: str, condition: bool = True, msg: str = "") -> None:
+    """检查点（断言）：在 allure 报告中记录检查点节点并校验。
+
+    用法：
+        checkPoint("登录成功", self.flow.home.is_logged_in())
+        checkPoint("登录成功", self.flow.home.is_logged_in(), "点击登录后应处于已登录状态")
+        checkPoint("登录成功")          # 仅记录检查点，不校验（condition 默认 True）
+
+    校验失败抛 AssertionError（pytest 标记失败），失败信息包含检查点名称；
+    用例失败时 conftest 自动截图，与报告步骤共同构成检查点证据。
+    """
+    with allure.step(f"检查点：{name}"):
+        if not condition:
+            raise AssertionError(msg or f"检查点 [{name}] 未通过")
+        print(f"[CHECKPOINT] {name} PASS")
+
 
 class TestCaseBase:
     __test__ = False  # 标记非 pytest 测试类，由函数包装调用 run()

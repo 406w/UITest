@@ -1,8 +1,19 @@
 """pytest 全局配置：driver fixture（多端适配）与失败截图。"""
+from pathlib import Path
+
 import allure
 import pytest
 
 from common.driver import DriverManager
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+ALLURE_RESULTS_DIR = PROJECT_ROOT / "report" / "allure-results"
+
+
+def pytest_configure(config):
+    ALLURE_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    config.option.allure_report_dir = str(ALLURE_RESULTS_DIR)
+    config.option.clean_alluredir = True
 
 
 def pytest_addoption(parser):
@@ -20,6 +31,12 @@ def pytest_addoption(parser):
         choices=["edge", "chrome", "firefox"],
         help="web 端浏览器（默认 edge）",
     )
+    parser.addoption(
+        "--headless",
+        action="store_true",
+        default=False,
+        help="web 端浏览器无头模式（CI/Docker 环境使用）",
+    )
 
 
 @pytest.fixture(scope="function")
@@ -35,7 +52,12 @@ def driver(request, driver_manager):
     """主 driver：由 DriverManager 统一管理，平台/浏览器由命令行参数决定。"""
     platform = request.config.getoption("--platform")
     browser = request.config.getoption("--browser")
-    return driver_manager.create_driver("main", platform=platform, browser=browser)
+    return driver_manager.create_driver(
+        "main",
+        platform=platform,
+        browser=browser,
+        headless=request.config.getoption("--headless"),
+    )
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

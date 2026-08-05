@@ -12,14 +12,11 @@ UITest/
 ├── conftest.py                # driver fixture + 失败自动截图
 ├── requirements.txt           # 依赖清单
 ├── page/                      # 页面层
-│   ├── page_elements/         # ① 页面元素层（每个页面一个文件）
-│   │   ├── locator.py         #    Page 基类 / 多系统适配 / 倒序引用
+│   ├── page_elements/         # ① 页面元素层（每个页面一个文件，控件 + 跳转声明）
+│   │   ├── locator.py         #    Page 基类 / 多系统适配 / 倒序引用 / jump 跳转装饰器 / ways_to 反查
 │   │   ├── bilibili_home_page.py
 │   │   └── bilibili_login_page.py
-│   ├── page_redirect/         # ② 页面跳转层（跳转来源声明 + ways_to 反查函数）
-│   │   ├── login_page_redirects.py
-│   │   └── home_page_redirects.py
-│   └── page_objects/          # ③ 页面对象层（链式调用，暴露业务接口）
+│   └── page_objects/          # ② 页面对象层（链式调用，暴露业务接口）
 ├── common/                    # 公共层
 │   ├── base_operates.py       # BaseOperates 类 ④ 基础操作层（find 软等待/并行滚动、click 快照/弹窗截获、swipe 手势重构）
 │   ├── driver.py              #    Driver 工厂（Web selenium / Android·IOS appium）
@@ -41,7 +38,7 @@ UITest/
 
 ### 1、页面元素层（page/page_elements）
 
-能力：每个页面一个 Page 类，声明页面控件定位器；支持多系统（web / android / ios）各自适配；无特征属性的控件通过"关系"（relation）定位；定位器倒序引用。
+能力：每个页面一个 Page 类，声明页面控件定位器、交互操作与页面跳转；支持多系统（web / android / ios）各自适配；无特征属性的控件通过"关系"（relation）定位；定位器倒序引用。
 
 示例
 
@@ -61,17 +58,27 @@ class HomePage(Page):
             xpath = "//XCUIElementTypeButton[@name='账号']"
 ```
 
-### 2、页面跳转层（page/page_redirect）
+### 2、页面跳转声明（PE 层 `jump` 装饰器）
 
-能力：声明页面间的跳转来源（ComeFrom），并提供 ways_to 反查"能跳转到目标页面的全部方式"，编码时直接查代码即可，无需打开实际页面。
+能力：在页面元素层的控件上用 `@jump("目标页面类名")` 声明该控件能跳转到哪个页面，无需独立跳转层；通过 `Page.ways_to()` 反查"能跳转到目标页面的全部方式"，编码时直接查代码即可，无需打开实际页面。
+
+目标页面以字符串类名引用，避免页面模块互相导入造成循环依赖；`Page.ways_to/ways_from/print_ways_to` 从全部页面类反查跳转关系。
 
 示例
 
 ```python
-class HomePage:
-    class ComeFrom:
-        """谁可以跳转到首页"""
-        from_login_back = (BilibiliLoginPage, BilibiliLoginPage.back_btn)
+class HomePage(Page):
+    @jump("LoginPage", desc="点击进入登录页")
+    class login_entry:
+        pass
+    @jump("LoginPage", cond="未登录", desc="点击进入登录页")
+    @jump("AccountCenterPage", cond="已登录", desc="点击进入个人中心")
+    class account:
+        pass
+
+# 查询跳转方式
+Page.ways_to(LoginPage)          # [(描述, 来源页面类, 来源控件类), ...]
+Page.print_ways_to(LoginPage)    # 格式化输出全部跳转方式
 ```
 
 ### 3、基础操作层（common/base_operates.py）

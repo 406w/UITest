@@ -1,4 +1,4 @@
-"""PageElement 层：页面元素声明（嵌套类方式）。
+"""PageElement 层：页面元素声明（嵌套类方式）与页面跳转声明（装饰器方式）。
 
 规则：
 1. 一个页面为一个 Page 类，页面内每个控件为一个嵌套类
@@ -7,6 +7,8 @@
 4. 多系统适配：每个平台子类分别声明 text/id/xpath/css_selector/class_name/tag_name 等
 5. 自动解析"关系"，转换为实际定位器
 6. 控件倒序引用：引用方式从"页面.控件"，改为"控件.页面"
+7. 页面跳转声明：控件上用 jump 装饰器声明"能跳转到哪个页面"，
+   靠 Page 的 ways_to/ways_from 反查跳转关系，无需独立跳转层
 """
 from __future__ import annotations
 
@@ -41,9 +43,40 @@ def is_element_class(obj) -> bool:
     )
 
 
+def jump(target: str, cond: str = "", desc: str = ""):
+    """控件类装饰器：声明该控件有跳转到目标页面的能力（支持多条件分支）。
+
+    用法::
+
+        @jump("LoginPage", cond="未登录", desc="点击进入登录页")
+        @jump("AccountCenterPage", cond="已登录", desc="点击进入个人中心")
+        class account:
+            ...
+
+    同一个控件可叠加多个 @jump：不同条件下跳转到不同页面，用 cond 区分跳转分支；
+    没有条件差异时可直接 @jump("LoginPage")（cond 为空表示无条件分支）。
+    参数以字符串（目标页面类名）标注，避免页面模块互相导入造成循环依赖；
+    目标页面类需在 page_elements 中定义并通过 PageElements 命名空间可查。
+    """
+    if not isinstance(target, str) or not target:
+        raise TypeError("jump 的目标页面必须以字符串类名声明，例如 @jump(\"LoginPage\")")
+    if cond is None:
+        cond = ""
+
+    def decorator(element_cls):
+        jumps = getattr(element_cls, "_jump_targets", None)
+        if jumps is None:
+            jumps = []
+            element_cls._jump_targets = jumps
+        jumps.append((target, cond, desc or getattr(element_cls, "element_name", "")))
+        return element_cls
+
+    return decorator
+
+
 class PageMeta(type):
     """Page 元类：遍历嵌套类，识别控件声明并完成倒序绑定（控件.页面），
-    解析 ComeFrom 跳转来源声明（只声明 to_page，来源以 (页面类, 控件类) 元组给出）。"""
+    收集 jump 装饰器声明的跳转目标。"""
 
     def __new__(mcs, name, bases, namespace):
         cls = super().__new__(mcs, name, bases, namespace)
@@ -51,62 +84,89 @@ class PageMeta(type):
             if is_element_class(element_cls):
                 element_cls.name = attr_name
                 element_cls.page = cls
-        mcs._bind_come_from(cls, namespace)
         return cls
-
-    @staticmethod
-    def _bind_come_from(cls, namespace):
-        come_from = namespace.get("ComeFrom")
-        if not isinstance(come_from, type):
-            return
-        entries = []
-        for attr_name, value in vars(come_from).items():
-            if attr_name.startswith("_"):
-                continue
-            if not (isinstance(value, tuple) and len(value) == 2):
-                raise TypeError(
-                    f"{cls.__name__}.ComeFrom.{attr_name} 声明格式错误，"
-                    f"必须为 (来源页面类, 来源页面控件类)，当前为: {value!r}"
-                )
-            from_page_cls, locator = value
-            if not (isinstance(from_page_cls, type) and issubclass(from_page_cls, Page)):
-                raise TypeError(
-                    f"{cls.__name__}.ComeFrom.{attr_name} 的来源必须引用 page_elements 中的 Page 子类，"
-                    f"当前为: {from_page_cls!r}"
-                )
-            if not is_element_class(locator) or locator.page is not from_page_cls:
-                raise ValueError(
-                    f"{cls.__name__}.ComeFrom.{attr_name} 引用的控件 {locator!r} "
-                    f"不属于来源页面 {from_page_cls.__name__}，请引用该页面中已声明的控件"
-                )
-            entries.append((attr_name, from_page_cls, locator))
-        cls.ComeFromEntries = tuple(entries)
 
 
 class Page(metaclass=PageMeta):
     """页面基类。一个页面一个 Page 类，统一声明页面控件。
 
-    页面跳转来源声明：页面类内定义 ComeFrom 嵌套类，格式::
+    页面跳转声明：控件类上用 jump 装饰器标注目标页面（字符串类名），格式::
 
         class HomePage(Page):
-            class ComeFrom:
-                \"\"\"谁可以跳转到首页\"\"\"
-                # 来源描述 = (来源页面类, 来源页面控件类)
-                from_account_center_back = (AccountCenterPage, AccountCenterPage.back_btn)
+            @jump("LoginPage", desc="点击进入登录页")
+            class login_entry:
+                ...
     """
 
     url: str = ""
     desc: str = ""
 
+    url: str = ""
+    desc: str = ""
+
+    # ---------------- 跳转关系查询 ----------------
     @classmethod
-    def come_from(cls) -> list[tuple[str, type["Page"], type]]:
-        """倒序关联：本页面能被谁跳转过来。返回 [(来源描述, 来源页面类, 来源控件类), ...]"""
-        return list(getattr(cls, "ComeFromEntries", ()))
+    def _jump_entries(cls) -> list[tuple[str, str, str, type]]:
+        """本页面内声明的全部跳转分支:
+        [(目标页面类名, 跳转条件, 描述, 来源控件类), ...]"""
+        entries = []
+        for name, element_cls in vars(cls).items():
+            jumps = getattr(element_cls, "_jump_targets", None) if is_element_class(element_cls) else None
+            if not jumps:
+                continue
+            for target_name, cond, desc in jumps:
+                entries.append((target_name, cond, desc, element_cls))
+        return entries
 
     @classmethod
-    def define_come_from(cls, come_from_cls: type):
-        """补充声明跳转来源（页面互相引用时，先定义页面再绑定 ComeFrom）。"""
-        PageMeta._bind_come_from(cls, {"ComeFrom": come_from_cls})
+    def _all_pages(cls) -> list[type["Page"]]:
+        from page.page_elements import PageElements
+
+        return [
+            value
+            for value in vars(PageElements).values()
+            if isinstance(value, type) and issubclass(value, Page) and value is not Page
+        ]
+
+    @classmethod
+    def ways_to(
+        cls,
+        target_page: type["Page"],
+        cond: str | None = None,
+    ) -> list[tuple[str, str, type["Page"], type]]:
+        """倒序关联：输出所有能跳转到目标页面的方式。
+        返回 [(描述, 跳转条件, 来源页面类, 来源控件类), ...]；cond 非空时按条件过滤。"""
+        result = []
+        for page in cls._all_pages():
+            for target_name, entry_cond, desc, locator in page._jump_entries():
+                if target_name != target_page.__name__:
+                    continue
+                if cond is not None and entry_cond != cond:
+                    continue
+                result.append((desc, entry_cond, page, locator))
+        return result
+
+    @classmethod
+    def ways_from(
+        cls,
+        source_page: type["Page"],
+        cond: str | None = None,
+    ) -> list[tuple[str, str, type["Page"], type]]:
+        """正序关联：来源页面的控件能跳转到哪些页面。
+        返回 [(描述, 跳转条件, 来源页面类, 来源控件类), ...]；cond 非空时按条件过滤。"""
+        return source_page._jump_entries()
+
+    @classmethod
+    def print_ways_to(cls, target_page: type["Page"], cond: str | None = None) -> str:
+        lines = [f"跳转到 {target_page.__name__} 的全部方式:"]
+        for desc, entry_cond, from_page, locator in cls.ways_to(target_page, cond=cond):
+            cond_tip = f",条件[{entry_cond}]" if entry_cond else ""
+            lines.append(
+                f"  - {from_page.__name__} 页面的 {locator.name} 定位器"
+                f"（{locator.element_name}）有能力跳转到 {target_page.__name__}"
+                f"{cond_tip}  [{desc}]"
+            )
+        return "\n".join(lines)
 
     @classmethod
     def element_names(cls) -> list[str]:

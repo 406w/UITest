@@ -39,7 +39,7 @@ class TestBilibiliHomepageLoginStatus(TestCaseBase):
 
 
 class TestBilibiliHomepageToLoginPage(TestCaseBase):
-    """从首页按 PageRedirect 跳转关系进入登录页。"""
+    """从首页按 PE 层 jump 跳转声明进入登录页。"""
 
     __test__ = False  # 非 pytest 测试类，由下方函数入口调用 run()
 
@@ -89,6 +89,6 @@ def test_bilibili_homepage_login_status(driver):
 @pytest.mark.web
 @allure.feature("哔哩哔哩")
 @allure.story("页面跳转")
-@allure.title("从首页按 PageRedirect 跳转关系进入登录页")
+@allure.title("从首页按 PE 层 jump 跳转声明进入登录页")
 def test_bilibili_homepage_to_login_page(driver):
     TestBilibiliHomepageToLoginPage(driver).run()

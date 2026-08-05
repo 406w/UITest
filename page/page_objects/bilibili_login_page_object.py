@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import allure
 
+from page.page_elements import Page
 from page.page_elements.bilibili_home_page import BilibiliHomePage
 from page.page_elements.bilibili_login_page import BilibiliLoginPage
 from page.page_objects import PageObject
-from page.page_redirect import PageRedirect
 
 
 class BilibiliLoginPageObject(PageObject):
@@ -47,16 +47,16 @@ class BilibiliLoginPageObject(PageObject):
 
     # ---------------- 页面跳转 ----------------
     def go_home(self) -> "BilibiliHomePageObject":
-        """按 PageRedirect 跳转关系跳回首页。"""
+        """按 PE 层 jump 跳转声明跳回首页。"""
         from page.page_objects.bilibili_home_page_object import BilibiliHomePageObject
 
-        ways = PageRedirect.ways_to(BilibiliHomePage)
-        login_ways = [w for w in ways if w[1] is self.page]
+        ways = Page.ways_to(BilibiliHomePage)
+        login_ways = [w for w in ways if w[2] is self.page]
         if not login_ways:
             raise ValueError(
-                f"page_redirect 中未声明 {self.page.__name__} 能跳转到 {BilibiliHomePage.__name__} 的方式"
+                f"PE 层未声明 {self.page.__name__} 能跳转到 {BilibiliHomePage.__name__} 的方式"
             )
-        desc, from_page, locator = login_ways[0]
+        desc, cond, from_page, locator = login_ways[0]
         self.click(locator.name, expected="url")
         return BilibiliHomePageObject(self.driver, platform=self.platform)
 

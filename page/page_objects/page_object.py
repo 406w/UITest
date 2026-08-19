@@ -28,6 +28,19 @@ class PageObject:
 
     # ---------------- 基础能力 ----------------
     def open(self, url: str | None = None) -> "PageObject":
+        package_name = getattr(self.page, "package_name", "")
+        main_activity = getattr(self.page, "main_activity", "")
+        if self.platform == "android" and package_name and main_activity:
+            # 冷启动：先杀进程再拉起，强制回到主 Activity（消除 App 页面记忆，保证从首页开始）
+            try:
+                self.driver.terminate_app(package_name)
+            except Exception:
+                pass
+            self.driver.activate_app(package_name)
+            return self
+        if self.platform in ("android", "ios") and package_name:
+            self.driver.activate_app(package_name)
+            return self
         self.driver.get(url or self.page.url)
         return self
 

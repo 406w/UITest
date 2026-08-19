@@ -4,6 +4,8 @@ from page.page_elements import Page, jump
 
 class BilibiliLoginPage(Page):
     url = "https://passport.bilibili.com/login"
+    package_name = "tv.danmaku.bili"
+    main_activity = "tv.danmaku.bili.MainActivityV2"
     desc = "哔哩哔哩登录页"
 
     @jump("BilibiliHomePage", desc="返回按钮跳回首页")

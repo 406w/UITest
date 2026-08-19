@@ -96,12 +96,17 @@ class Page(metaclass=PageMeta):
             @jump("LoginPage", desc="点击进入登录页")
             class login_entry:
                 ...
+
+    url:          web 端页面地址（web 平台 open() 时 driver.get）
+    package_name: Android 包名 / iOS BundleId（移动端 open() 时 activate_app），
+                  web 平台留空
+    main_activity: Android 主 Activity（移动端 open() 时 start_activity 强制回首页，
+                  消除页面记忆；Android 平台必填，web/iOS 留空）
     """
 
     url: str = ""
-    desc: str = ""
-
-    url: str = ""
+    package_name: str = ""
+    main_activity: str = ""
     desc: str = ""
 
     # ---------------- 跳转关系查询 ----------------

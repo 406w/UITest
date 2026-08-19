@@ -102,18 +102,28 @@ class WebDriverFactory:
         desired_capabilities: dict[str, Any] | None = None,
         **_: Any,
     ):
+        from appium import webdriver as appium_webdriver
+
+        if self.platform == self.ANDROID:
+            from appium.options.android import UiAutomator2Options
+
+            options = UiAutomator2Options()
+        elif self.platform == self.IOS:
+            from appium.options.ios import XCUITestOptions
+
+            options = XCUITestOptions()
+        else:
+            raise UnsupportedPlatformError(f"不支持的平台: {self.platform}")
+
         caps = dict(desired_capabilities or {})
         caps.setdefault("platformName", self.platform_name)
-        caps.setdefault("automationName", "UiAutomator2" if self.platform == self.ANDROID else "XCUITest")
-        if self.platform == self.ANDROID:
-            from appium import webdriver as appium_webdriver
-
-            return appium_webdriver.Remote(appium_server, caps)
-        if self.platform == self.IOS:
-            from appium import webdriver as appium_webdriver
-
-            return appium_webdriver.Remote(appium_server, caps)
-        raise UnsupportedPlatformError(f"不支持的平台: {self.platform}")
+        caps.setdefault(
+            "automationName",
+            "UiAutomator2" if self.platform == self.ANDROID else "XCUITest",
+        )
+        for key, value in caps.items():
+            options.set_capability(key, value)
+        return appium_webdriver.Remote(appium_server, options=options)
 
 
 class DriverManager:
@@ -134,7 +144,10 @@ class DriverManager:
         if name in self._drivers:
             raise ValueError(f"驱动已存在: {name}，已创建: {list(self._drivers)}")
         driver = WebDriverFactory(platform=platform, browser=browser).create(**kwargs)
-        driver.set_page_load_timeout(self.page_load_timeout)
+        if platform == WebDriverFactory.WEB:
+            driver.set_page_load_timeout(self.page_load_timeout)
+        else:
+            driver.implicitly_wait(10)
         self._drivers[name] = driver
         return driver
 

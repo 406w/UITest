@@ -29,21 +29,23 @@ def step(name: str) -> None:
         print(f"[STEP] {name}")
 
 
-def checkPoint(name: str, condition: bool = True, msg: str = "") -> None:
-    """检查点（断言）：在 allure 报告中记录检查点节点并校验。
+def checkPoint(name: str, actual: str = "") -> None:
+    """检查点记录：仅登记文本用例中的预期结果，不实现断言。
+
+    断言由调用方使用原生 `assert` 完成；checkPoint 只在 allure 报告中
+    登记检查点节点与预期结果（可选附实际值），作为报告证据，
+    不抛异常、不判定成败。
 
     用法：
-        checkPoint("登录成功", self.flow.home.is_logged_in())
-        checkPoint("登录成功", self.flow.home.is_logged_in(), "点击登录后应处于已登录状态")
-        checkPoint("登录成功")          # 仅记录检查点，不校验（condition 默认 True）
-
-    校验失败抛 AssertionError（pytest 标记失败），失败信息包含检查点名称；
-    用例失败时 conftest 自动截图，与报告步骤共同构成检查点证据。
+        nickname = self.home.get_nickname()
+        checkPoint("用户昵称为「励志成为雏生大王_406」", f"实际: {nickname}")
+        assert nickname == EXPECTED_NICKNAME, f"昵称不符: 期望 {EXPECTED_NICKNAME}，实际 {nickname}"
     """
     with allure.step(f"检查点：{name}"):
-        if not condition:
-            raise AssertionError(msg or f"检查点 [{name}] 未通过")
-        print(f"[CHECKPOINT] {name} PASS")
+        if actual:
+            print(f"[CHECKPOINT] {name} | 实际值: {actual}")
+        else:
+            print(f"[CHECKPOINT] {name}")
 
 
 class TestCaseBase:

@@ -4,6 +4,8 @@ from page.page_elements import Page, RelationType, jump
 
 class BilibiliHomePage(Page):
     url = "https://www.bilibili.com/"
+    package_name = "tv.danmaku.bili"
+    main_activity = "tv.danmaku.bili.MainActivityV2"
     desc = "哔哩哔哩首页"
 
     class home_header:
@@ -14,7 +16,7 @@ class BilibiliHomePage(Page):
             css_selector = "div.bili-header"
 
         class android:
-            id = "header"
+            id = "tv.danmaku.bili:id/nav_top_bar"
 
         class ios:
             xpath = "//XCUIElementTypeOther[@name='header']"
@@ -56,13 +58,12 @@ class BilibiliHomePage(Page):
             xpath = "//XCUIElementTypeButton[@name='登录']"
 
     class account:
-        """账号按钮 - 有明确特征的控件"""
-        element_name = "账号"
+        """账号按钮 - 底部导航「我的」入口"""
+        element_name = "我的"
 
         class android:
-            text = "账号"
-            id = "com.bilibili.app:id/btn_account"
-            xpath = "//*[@text='账号']"
+            text = "我的"
+            xpath = "//*[@text='我的']"
 
         class ios:
             text = "账号"
@@ -75,17 +76,11 @@ class BilibiliHomePage(Page):
             css_selector = "#btn-account"
 
     class avatar:
-        """头像 - 登录后头像图片（无文本无 ID，以图片地址特征定位）"""
+        """头像 - 我的页个人信息区头像（无文本无 ID，点击进入个人空间）"""
         element_name = "头像"
 
         class android:
-            class_name = "android.widget.ImageView"
-
-            relation = {
-                "type": RelationType.CHILD_OF,
-                "parent": "home_header",
-                "index": 0,
-            }
+            id = "tv.danmaku.bili:id/layer_avatar"
 
         class ios:
             class_name = "XCUIElementTypeImage"
@@ -100,11 +95,11 @@ class BilibiliHomePage(Page):
             xpath = "//div.bili-header//img[contains(@src, 'hdslb.com/bfs')]"
 
     class nickname:
-        """用户昵称 - 我的页/个人中心展示的用户昵称文本"""
+        """用户昵称 - 我的页展示的用户昵称文本"""
         element_name = "用户昵称"
 
         class android:
-            id = "com.bilibili.app:id/nickname"
+            id = "tv.danmaku.bili:id/nick_name"
 
         class ios:
             id = "nickname"

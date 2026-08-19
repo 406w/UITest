@@ -27,8 +27,64 @@ pipeline {
                     & python -m venv "$env:WORKSPACE\\.venv"
                     & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" -m pip install --upgrade pip -q
                     & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" -m pip install -r requirements.txt -q
-                    & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" data\\init_db.py
                 '''
+                script {
+                    writeFile file: 'data/init_db_ci.py', text: '''# -*- coding: utf-8 -*-
+import os
+import sqlite3
+from pathlib import Path
+
+db = Path(os.environ["WORKSPACE"]) / "data" / "test_data.db"
+conn = sqlite3.connect(db)
+conn.executescript(
+    "CREATE TABLE IF NOT EXISTS sites ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    " name TEXT NOT NULL UNIQUE,"
+    " url TEXT NOT NULL UNIQUE,"
+    " created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')));"
+    "CREATE TABLE IF NOT EXISTS accounts ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    " site_id INTEGER NOT NULL,"
+    " username TEXT NOT NULL,"
+    " password TEXT NOT NULL,"
+    " is_default INTEGER NOT NULL DEFAULT 0,"
+    " created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),"
+    " FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE);"
+)
+site = conn.execute("SELECT id FROM sites WHERE name = ?", ("哔哩哔哩",)).fetchone()
+if site is None:
+    site_id = conn.execute(
+        "INSERT INTO sites (name, url) VALUES (?, ?)",
+        ("哔哩哔哩", "https://www.bilibili.com/"),
+    ).lastrowid
+else:
+    site_id = site[0]
+user = os.environ.get("BILI_USER")
+pwd = os.environ.get("BILI_PWD")
+if user and pwd:
+    exists = conn.execute(
+        "SELECT id FROM accounts WHERE site_id = ? AND username = ?",
+        (site_id, user),
+    ).fetchone()
+    if exists is None:
+        conn.execute(
+            "INSERT INTO accounts (site_id, username, password, is_default) VALUES (?, ?, ?, 1)",
+            (site_id, user, pwd),
+        )
+conn.commit()
+conn.close()
+print("CI 数据库初始化完成:", db)
+'''
+                }
+                withCredentials([usernamePassword(
+                    credentialsId: 'bilibili-test-account',
+                    usernameVariable: 'BILI_USER',
+                    passwordVariable: 'BILI_PWD'
+                )]) {
+                    powershell '''
+                        & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" data\\init_db_ci.py
+                    '''
+                }
             }
         }
 

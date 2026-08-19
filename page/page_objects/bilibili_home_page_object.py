@@ -24,9 +24,9 @@ class BilibiliHomePageObject(PageObject):
         return self.open()
 
     def wait_loaded(self, timeout: float = 20.0) -> "BilibiliHomePageObject":
-        # 以底部导航「我的」tab 为加载标志：App 默认可能停在任意主 Tab（直播/首页…），
-        # 但底部导航 5 项始终存在，比首页顶部导航栏 nav_top_bar 更稳定
-        self.operates.find(self.page, "account", timeout=timeout)
+        # 以顶部导航栏为加载标志（web: div.bili-header / android: nav_top_bar / ios: header），
+        # 各端首页始终存在，比「我的」入口稳定（网页版未登录态已无 #btn-account）
+        self.operates.find(self.page, "home_header", timeout=timeout)
         return self
 
     # ---------------- 页面跳转 ----------------

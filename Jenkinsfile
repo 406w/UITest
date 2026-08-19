@@ -27,6 +27,7 @@ pipeline {
                     & python -m venv "$env:WORKSPACE\\.venv"
                     & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" -m pip install --upgrade pip -q
                     & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" -m pip install -r requirements.txt -q
+                    & "$env:WORKSPACE\\.venv\\Scripts\\python.exe" data\\init_db.py
                 '''
             }
         }

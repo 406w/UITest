@@ -40,10 +40,14 @@ class BilibiliLoginFlow(BusinessFlow):
         self.db = DataBase()
 
     # ---------------- 数据 ----------------
-    def get_account(self, username: str, site_name: str = "哔哩哔哩") -> dict:
-        """从 data 获取指定账号的密码，未找到时给出明确的失败原因。"""
-        with allure.step(f"从 data 获取账号 {username} 的密码"):
-            account = self.db.get_account(username, site_name=site_name)
+    def get_account(self, username: str | None = None, site_name: str = "哔哩哔哩") -> dict:
+        """从 data 获取指定账号的密码，未指定时取站点默认账号，未找到时给出明确的失败原因。"""
+        with allure.step(f"从 data 获取账号 {username or '（默认）'} 的密码"):
+            account = (
+                self.db.get_default_account(site_name=site_name)
+                if not username
+                else self.db.get_account(username, site_name=site_name)
+            )
             assert account is not None, (
                 f"data 中未找到账号 {username}，"
                 f"现有账号: {[a['username'] for a in self.db.get_accounts(site_name)]}"
@@ -85,6 +89,8 @@ class BilibiliLoginFlow(BusinessFlow):
             time.sleep(1)
         if verify:
             with allure.step("验证登录成功"):
+                if self.login.has_captcha():
+                    pytest.skip("登录触发滑块验证码，自动化环境无法完成登录")
                 assert self.home.is_logged_in(), (
                     "点击登录后未处于已登录状态，可能遇到验证码或账号密码错误"
                 )
@@ -92,7 +98,7 @@ class BilibiliLoginFlow(BusinessFlow):
         return self
 
     # ---------------- 完整流程 ----------------
-    def login(self, username: str, password: str, verify: bool = True) -> "BilibiliLoginFlow":
+    def complete_login(self, username: str, password: str, verify: bool = True) -> "BilibiliLoginFlow":
         """完整登录流程：打开首页 -> 确认未登录 -> 进入登录页 -> 输入 -> 提交 -> 验证。"""
         return (
             self.open_home()

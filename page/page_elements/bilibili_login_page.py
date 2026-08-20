@@ -65,3 +65,10 @@ class BilibiliLoginPage(Page):
             text = "登录"
             id = "loginBtn"
             xpath = "//XCUIElementTypeButton[@name='登录']"
+
+    class captcha:
+        """滑块验证码面板（geetest），自动化环境出现时无法完成登录"""
+        element_name = "滑块验证码"
+
+        class web:
+            css_selector = "div.geetest_panel, iframe[src*='geetest']"

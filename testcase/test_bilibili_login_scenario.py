@@ -5,6 +5,8 @@
 仅验证 web 端。
 """
 # ---------------- 引入资源文件 ----------------
+import os
+
 import allure
 import pytest
 
@@ -12,7 +14,7 @@ from common.base_test_case import TestCaseBase
 from common.business_flow import BilibiliLoginFlow
 from page.page_elements.bilibili_home_page import BilibiliHomePage
 
-ACCOUNT_USERNAME = "NA"
+ACCOUNT_USERNAME = os.environ.get("BILI_USERNAME")
 
 
 class TestBilibiliLoginScenario(TestCaseBase):
@@ -78,7 +80,7 @@ class TestBilibiliCompleteLoginFlow(TestCaseBase):
     # ---------------- test_step：测试步骤 ----------------
     def test_step(self) -> None:
         with allure.step("执行完整登录流程"):
-            self.flow.login(self.account["username"], self.account["password"])
+            self.flow.complete_login(self.account["username"], self.account["password"])
             status = self.flow.home.login_status()
             self.flow.home.attach_text(status, name="login_status")
             print(f"\n完整登录流程结束，登录状态: {status}")

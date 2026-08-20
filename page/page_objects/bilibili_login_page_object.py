@@ -36,6 +36,13 @@ class BilibiliLoginPageObject(PageObject):
         self.click("login_btn", **kwargs)
         return self
 
+    def has_captcha(self, timeout: float = 3.0) -> bool:
+        """登录提交后是否出现滑块验证码（geetest）。"""
+        try:
+            return self.find("captcha", timeout=timeout).is_displayed()
+        except Exception:
+            return False
+
     def login(self, username: str, password: str) -> "BilibiliLoginPageObject":
         """组合登录操作，链式调用。"""
         return (

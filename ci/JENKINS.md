@@ -4,7 +4,7 @@
 
 ## 架构
 
-复用已有 Jenkins 控制器。Compose 只创建专用 inbound agent 和 Selenium Chrome，控制器不运行本工程测试，不挂载宿主 Docker socket。测试节点标签 `erp-uitest-linux`，仅接收匹配该标签的任务，单执行器。两容器通过独立 Compose 网络通信，不向宿主暴露 Selenium 端口。
+复用已有 Jenkins 控制器。Compose 创建专用 inbound agent、Selenium Chrome 和本机报告服务，控制器不运行本工程测试，不挂载宿主 Docker socket。测试节点标签 `erp-uitest-linux`，仅接收匹配该标签的任务，单执行器。容器通过独立 Compose 网络通信，不向宿主暴露 Selenium 端口。
 
 节点镜像包含 Python 3.11、Node 24、Java 21 和 Allure 2.45.0；每次构建在工作区按 requirements.lock.txt 创建虚拟环境。镜像基础与浏览器使用固定 digest。
 
@@ -24,6 +24,8 @@
 ERP_ISOLATED_BIND_HOST/ERP_ISOLATED_PUBLIC_HOST 仅改变容器间地址。普通本机运行仍绑定 127.0.0.1。SELENIUM_REMOTE_URL 指向 Compose 内的浏览器；不设置时保留本机浏览器方式。
 
 构建归档 JUnit、Allure JSON、PNG 开始截图、HTML 及 ci-verification.json。后者检查本次 UI 结果身份和截图存在性。失败时保留已有报告且构建不标记成功。HTML 位于构建页的 Allure UI 链接；如果浏览器受到 Jenkins CSP 限制，可下载归档用 `allure open` 打开，不关闭全局 CSP。
+
+本机直接查看入口为 http://127.0.0.1:8082/ 。独立 Nginx 只提供工作区的 report/ui-html，禁止目录列表与符号链接，仅绑定 127.0.0.1，且只读挂载节点卷。该入口与 Jenkins 的 localhost:8080 不同源，不需要放宽 Jenkins CSP。首次构建前和清理工作区期间可能返回 404；历史报告始终从 Jenkins 构建归档下载。任务名若改变，需要同步修改 ci/nginx.conf 的 root 路径。
 
 源码中只有隔离演示环境的初始数据；真实环境密码通过 ERP_TEST_PASSWORD 环境变量提供。Database.account 按 YAML key 取账号，不再固定返回管理员。demo/erp 是源工程服务代码快照，不包含任何本机运行数据库。
 

@@ -47,7 +47,6 @@ ERP-UITest/
 ├── report/                    # 测试报告
     ├── allure-results/        # 原始结果（pytest --alluredir 生成）
     └── allure-report/         # HTML 报告（allure generate 生成）
-├── ci/                    # 测试报告
-    ├── allure-results/        # 原始结果（pytest --alluredir 生成）
-└── main.py                    # 执行入口，可启动隔离 ERP 并生成报告
+├── jenkinsfile/               # 本地基础配置
+└── main.py                    # 独立的执行入口
 ```

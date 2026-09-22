@@ -1,0 +1,25 @@
+accounts:
+  - key: admin
+    username: admin
+    password_env: ERP_TEST_PASSWORD
+    expected_display_name: 系统管理员
+orders:
+  - key: sale
+    type: sale
+    partner: 星河设计工作室
+    warehouse: 上海主仓
+    items:
+      - product_code: P001
+        quantity: 2
+        price: '19.50'
+      - product_code: P002
+        quantity: 3
+        price: '12.30'
+  - key: purchase
+    type: purchase
+    partner: 上海联创数码科技
+    warehouse: 上海主仓
+    items:
+      - product_code: P001
+        quantity: 2
+        price: '19.50'

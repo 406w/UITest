@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "case_id": "login_logout",
+  "run_id": "REPLACE_WITH_TIMESTAMP_AND_SUFFIX",
+  "mode": "execute",
+  "target": "isolated",
+  "workspace": "REPLACE_WITH_ABSOLUTE_WORKSPACE",
+  "script_path": "REPLACE_WITH_ABSOLUTE_SCRIPT_PATH",
+  "source_sha256": "REPLACE_WITH_REDACTED_SOURCE_SHA256",
+  "status": "pending",
+  "stages": [],
+  "changed_files": [],
+  "validation_runs": [],
+  "open_questions": []
+}

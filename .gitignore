@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.runtime/
+data/*.db
+report/*
+!report/.gitkeep
+.pipeline/
+.idea/
+.env
+.env.*
+!.env.example
+ci/jenkins/secrets/
+ci/jenkins/.env
+demo/erp/data/

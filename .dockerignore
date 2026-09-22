@@ -1,0 +1,12 @@
+.git
+.venv
+.runtime
+.pytest_cache
+**/__pycache__
+.pipeline
+.idea
+report
+ci/jenkins/secrets
+ci/jenkins/.env
+.env*
+**/*.db

@@ -1,0 +1,9 @@
+{
+  "name": "qihang-erp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "启航 ERP · 自动化测试练习项目",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": { "start": "node server.js", "dev": "node --watch server.js", "check": "node --check server.js && node --check db.js && node --check public/app.js" }
+}

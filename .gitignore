@@ -14,3 +14,10 @@ report/*
 ci/jenkins/secrets/
 ci/jenkins/.env
 demo/erp/data/
+.venv-agent/
+.agent-runs/
+agent.local.json
+API-key.txt
+api-key.txt
+framework_checks/
+ci/

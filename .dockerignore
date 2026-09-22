@@ -10,3 +10,8 @@ ci/jenkins/secrets
 ci/jenkins/.env
 .env*
 **/*.db
+.venv-agent
+.agent-runs
+agent.local.json
+API-key.txt
+api-key.txt

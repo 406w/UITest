@@ -26,6 +26,7 @@ pipeline {
         stage('Dependencies') {
             steps {
                 sh '''
+                    mkdir -p .runtime
                     python3 -m venv .venv
                     .venv/bin/python -m pip install --disable-pip-version-check -r requirements.lock.txt
                     .venv/bin/python -m pip check
